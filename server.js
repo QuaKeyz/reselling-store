@@ -15,9 +15,9 @@ const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
 const BASE_URL = process.env.BASE_URL || "http://localhost:4242";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "change-me-now";
 
-// NEW: persistent storage locations (set these on Render)
-const STORE_DATA_DIR = process.env.STORE_DATA_DIR || "";     // e.g. /var/data
-const STORE_UPLOADS_DIR = process.env.STORE_UPLOADS_DIR || ""; // e.g. /var/data/uploads
+// Persistent dirs (for Render paid + disk)
+const STORE_DATA_DIR = process.env.STORE_DATA_DIR || "";
+const STORE_UPLOADS_DIR = process.env.STORE_UPLOADS_DIR || "";
 
 if (!STRIPE_SECRET_KEY) {
   console.error("Missing STRIPE_SECRET_KEY in environment.");
@@ -27,27 +27,25 @@ if (!STRIPE_SECRET_KEY) {
 const stripe = new Stripe(STRIPE_SECRET_KEY);
 const app = express();
 
+// Paths
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PUBLIC_DIR = path.join(__dirname, "public");
 
-// Decide data dir
-const DATA_DIR = STORE_DATA_DIR
-  ? STORE_DATA_DIR
-  : path.join(__dirname, "data");
-
+const DATA_DIR = STORE_DATA_DIR ? STORE_DATA_DIR : path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
 
-// Decide uploads dir (if not set, fall back to public/uploads for local dev)
 const UPLOADS_DIR = STORE_UPLOADS_DIR
   ? STORE_UPLOADS_DIR
   : path.join(PUBLIC_DIR, "uploads");
 
-// Ensure dirs exist
+// Ensure dirs
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
-// Stripe webhook MUST be raw body
+// -------------------------
+// Webhook (raw body)
+// -------------------------
 app.post("/webhook", express.raw({ type: "application/json" }), async (req, res) => {
   try {
     if (!STRIPE_WEBHOOK_SECRET) {
@@ -74,6 +72,7 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
           order.customerPhone = session.customer_details?.phone || "";
           order.shipping = session.shipping_details || null;
 
+          // Decrement inventory
           for (const item of order.items) {
             const p = db.products.find(x => x.id === item.productId);
             if (p) {
@@ -94,16 +93,16 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
   }
 });
 
-// JSON after webhook
+// JSON AFTER webhook
 app.use(express.json());
 
-// Serve frontend + uploads
+// Static
 app.use(express.static(PUBLIC_DIR));
-app.use("/uploads", express.static(UPLOADS_DIR)); // IMPORTANT for persistent uploads
+app.use("/uploads", express.static(UPLOADS_DIR));
 
-// -----------------------------
-// Tiny JSON DB (atomic write)
-// -----------------------------
+// -------------------------
+// Simple JSON DB (atomic write)
+// -------------------------
 let writeLock = Promise.resolve();
 
 async function readDb() {
@@ -145,9 +144,9 @@ function moneyCents(n) {
   return Math.round(x);
 }
 
-// -----------------------------
-// Admin auth (token)
-// -----------------------------
+// -------------------------
+// Admin auth
+// -------------------------
 const adminTokens = new Map();
 
 function makeToken() {
@@ -160,7 +159,6 @@ function requireAdmin(req, res, next) {
   const info = adminTokens.get(token);
 
   if (!info) return res.status(401).json({ error: "Not authorized" });
-
   if (Date.now() > info.expiresAt) {
     adminTokens.delete(token);
     return res.status(401).json({ error: "Token expired" });
@@ -173,15 +171,14 @@ app.post("/api/admin/login", async (req, res) => {
   if (String(password || "") !== String(ADMIN_PASSWORD)) {
     return res.status(401).json({ error: "Wrong password" });
   }
-
   const token = makeToken();
   adminTokens.set(token, { createdAt: Date.now(), expiresAt: Date.now() + 1000 * 60 * 60 * 12 });
   res.json({ token });
 });
 
-// -----------------------------
-// Upload images (admin)
-// -----------------------------
+// -------------------------
+// Uploads
+// -------------------------
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
   filename: (_req, file, cb) => {
@@ -202,20 +199,21 @@ const upload = multer({
 app.post("/api/admin/upload", requireAdmin, upload.single("image"), async (req, res) => {
   const file = req.file;
   if (!file) return res.status(400).json({ error: "No file uploaded" });
-  // Always store as /uploads/...
   res.json({ url: `/uploads/${file.filename}` });
 });
 
-// -----------------------------
+// -------------------------
 // Public products
-// -----------------------------
+// -------------------------
 app.get("/api/products", async (_req, res) => {
   const db = await readDb();
   const visible = db.products.filter(p => p.active !== false && Number(p.inventory ?? 0) > 0);
   res.json(visible);
 });
 
+// -------------------------
 // Admin products CRUD
+// -------------------------
 app.get("/api/admin/products", requireAdmin, async (_req, res) => {
   const db = await readDb();
   res.json(db.products);
@@ -287,20 +285,26 @@ app.delete("/api/admin/products/:id", requireAdmin, async (req, res) => {
   const db = await readDb();
   const id = String(req.params.id || "");
   const before = db.products.length;
+
   db.products = db.products.filter(p => p.id !== id);
   if (db.products.length === before) return res.status(404).json({ error: "Not found" });
+
   await writeDb(db);
   res.json({ ok: true });
 });
 
+// -------------------------
 // Admin orders
+// -------------------------
 app.get("/api/admin/orders", requireAdmin, async (_req, res) => {
   const db = await readDb();
   const orders = [...db.orders].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
   res.json(orders);
 });
 
-// Secure checkout (server uses DB prices)
+// -------------------------
+// Secure checkout
+// -------------------------
 app.post("/api/create-checkout-session", async (req, res) => {
   try {
     const cart = req.body?.cart;
@@ -330,7 +334,10 @@ app.post("/api/create-checkout-session", async (req, res) => {
         price_data: {
           currency: "usd",
           unit_amount: Number(p.priceCents),
-          product_data: { name: p.name, images: p.imageUrl ? [p.imageUrl] : undefined }
+          product_data: {
+            name: p.name,
+            images: p.imageUrl ? [p.imageUrl] : undefined
+          }
         }
       });
 
@@ -358,4 +365,26 @@ app.post("/api/create-checkout-session", async (req, res) => {
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      line
+      line_items,
+      success_url: `${BASE_URL}/success.html?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${BASE_URL}/cancel.html`,
+      shipping_address_collection: { allowed_countries: ["US"] },
+      phone_number_collection: { enabled: true },
+      metadata: { orderId }
+    });
+
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Server error" });
+  }
+});
+
+// Admin route
+app.get("/admin", (_req, res) => {
+  res.sendFile(path.join(PUBLIC_DIR, "admin.html"));
+});
+
+// Start
+const port = process.env.PORT || 4242;
+app.listen(port, () => console.log(`Listening on ${port}`));
