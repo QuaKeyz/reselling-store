@@ -7,9 +7,11 @@
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-  <div class="container">
+ <div class="container">
 
-    <div class="topbar">
+  <!-- HERO FIRST -->
+  <div class="hero">
+    <div class="hero-inner">
       <div class="brand">
         <div class="logo"></div>
         <div>
@@ -18,69 +20,58 @@
         </div>
       </div>
 
-      <div class="actions">
-        <input id="search" class="input" placeholder="Search heat…" />
-        <select id="category" class="input select">
-          <option value="">All categories</option>
-        </select>
-        <div class="badge"><span class="dot"></span> Cart: <span id="cartCount">0</span></div>
+      <div style="max-width:760px;">
+        <h2>Welcome To The <span class="fire">Vault</span></h2>
+        <p>Low stock, high demand. Tap in early — when it’s gone, it’s gone.</p>
       </div>
     </div>
 
-    <div class="hero">
-      <div class="hero-inner">
-        <div>
-         <h2>Welcome To The <span class="fire">Vault</span></h2>
-<p>Low stock, high demand. Premium pieces and clean tech.</p>
-
-        </div>
-        <div class="hero-cta">
-          <a class="btn ghost" href="https://instagram.com/Qua_Keyz" target="_blank" rel="noopener noreferrer">
-    Instagram
-  </a>
-  <button class="btn primary" onclick="document.getElementById('search').focus()">Shop Now</button>
-</div>
- 
-          <button class="btn primary" onclick="document.getElementById('search').focus()">Shop Now</button>
-        </div>
-      </div>
+    <!-- SEARCH UNDER HEADLINE -->
+    <div class="controls">
+      <input id="search" class="input" placeholder="Search heat…" />
+      <select id="category" class="input select">
+        <option value="">All categories</option>
+      </select>
+      <div class="badge"><span class="dot"></span> Cart: <span id="cartCount">0</span></div>
     </div>
-
-    <div class="grid">
-      <section class="products" id="products"></section>
-
-      <aside class="card cart">
-        <div class="pad">
-          <div class="row">
-            <h2>Your Cart</h2>
-            <button id="clearBtn" class="btn danger">Clear</button>
-          </div>
-
-          <div class="hr"></div>
-
-          <div id="cartItems" class="cart-items"></div>
-
-          <div class="hr"></div>
-
-          <div class="row">
-            <div class="footer-note">Subtotal</div>
-            <div class="price" id="subtotal">$0.00</div>
-          </div>
-
-          <button id="checkoutBtn" class="btn primary" disabled>Checkout</button>
-
-          <div class="footer-note">
-  Secure Stripe checkout. Inventory is verified at checkout.
-</div>
-<div class="footer-note">
-  Support: <a href="mailto:bmaking271@gmail.com" style="text-decoration:underline;">bmaking271@gmail.com</a>
-</div>
-
-        </div>
-      </aside>
-    </div>
-
   </div>
+
+  <!-- STORE GRID -->
+  <div class="grid">
+    <section class="products" id="products"></section>
+
+    <aside class="card cart">
+      <div class="pad">
+        <div class="row">
+          <h2>Your Cart</h2>
+          <button id="clearBtn" class="btn danger">Clear</button>
+        </div>
+
+        <div class="hr"></div>
+
+        <div id="cartItems" class="cart-items"></div>
+
+        <div class="hr"></div>
+
+        <div class="row">
+          <div class="footer-note">Subtotal</div>
+          <div class="price" id="subtotal">$0.00</div>
+        </div>
+
+        <button id="checkoutBtn" class="btn primary" disabled>Checkout</button>
+
+        <div class="footer-note">
+          Secure Stripe checkout. Inventory is verified at checkout.
+        </div>
+        <div class="footer-note">
+          Support: <a href="mailto:bmaking271@gmail.com" style="text-decoration:underline;">bmaking271@gmail.com</a>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+</div>
+
   <script src="/app.js"></script>
 </body>
 </html>
