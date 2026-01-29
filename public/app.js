@@ -110,7 +110,8 @@ function renderProducts() {
           </div>
           <p>${escapeHtml(p.description || "")}</p>
           <div class="row" style="gap:8px; flex-wrap:wrap; justify-content:flex-start;">
-            ${badges.map(b => `<span class="badge">${escapeHtml(b)}</span>`).join("")}
+            ${badges.map(b => `<span class="pill">${escapeHtml(b)}</span>`).join("")}
+
           </div>
           <div class="row">
             <button class="btn" data-add="${escapeHtml(p.id)}">Add to cart</button>

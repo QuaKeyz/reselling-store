@@ -3,22 +3,40 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Resell Store</title>
+  <title>Ember Syndicate</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <div class="container">
-    <div class="header">
+
+    <div class="topbar">
       <div class="brand">
-        <h1>Resell Store</h1>
-        <p>Clothing • Shoes • Headphones — new drops weekly.</p>
+        <div class="logo"></div>
+        <div>
+          <h1><span>Ember Syndicate</span></h1>
+          <p>Designer • Streetwear • Kicks • Tech — curated drops</p>
+        </div>
       </div>
+
       <div class="actions">
-        <input id="search" class="search" placeholder="Search items…" />
-        <select id="category" class="search" style="width: 180px;">
+        <input id="search" class="input" placeholder="Search heat…" />
+        <select id="category" class="input select">
           <option value="">All categories</option>
         </select>
-        <div class="badge">Cart: <span id="cartCount">0</span></div>
+        <div class="badge"><span class="dot"></span> Cart: <span id="cartCount">0</span></div>
+      </div>
+    </div>
+
+    <div class="hero">
+      <div class="hero-inner">
+        <div>
+          <h2>Ride the <span class="fire">Nightfire</span></h2>
+          <p>High-demand pieces, clean listings, fast checkout. Tap in—when it’s gone, it’s gone.</p>
+        </div>
+        <div class="hero-cta">
+          <a class="btn ghost" href="/admin">Admin</a>
+          <button class="btn primary" onclick="document.getElementById('search').focus()">Shop Now</button>
+        </div>
       </div>
     </div>
 
@@ -43,19 +61,16 @@
             <div class="price" id="subtotal">$0.00</div>
           </div>
 
-          <button id="checkoutBtn" class="btn primary" disabled>Checkout (Stripe)</button>
+          <button id="checkoutBtn" class="btn primary" disabled>Checkout</button>
 
           <div class="footer-note">
-            Prices + inventory are verified on the server at checkout.
-          </div>
-          <div class="footer-note">
-            Admin panel: <a href="/admin" style="text-decoration: underline;">/admin</a>
+            Secure Stripe checkout. Inventory is verified at checkout.
           </div>
         </div>
       </aside>
     </div>
-  </div>
 
+  </div>
   <script src="/app.js"></script>
 </body>
 </html>
