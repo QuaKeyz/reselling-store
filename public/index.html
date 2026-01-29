@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Resell Store</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="brand">
+        <h1>Resell Store</h1>
+        <p>Clothing • Shoes • Headphones — new drops weekly.</p>
+      </div>
+      <div class="actions">
+        <input id="search" class="search" placeholder="Search items…" />
+        <select id="category" class="search" style="width: 180px;">
+          <option value="">All categories</option>
+        </select>
+        <div class="badge">Cart: <span id="cartCount">0</span></div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <section class="products" id="products"></section>
+
+      <aside class="card cart">
+        <div class="pad">
+          <div class="row">
+            <h2>Your Cart</h2>
+            <button id="clearBtn" class="btn danger">Clear</button>
+          </div>
+
+          <div class="hr"></div>
+
+          <div id="cartItems" class="cart-items"></div>
+
+          <div class="hr"></div>
+
+          <div class="row">
+            <div class="footer-note">Subtotal</div>
+            <div class="price" id="subtotal">$0.00</div>
+          </div>
+
+          <button id="checkoutBtn" class="btn primary" disabled>Checkout (Stripe)</button>
+
+          <div class="footer-note">
+            Prices + inventory are verified on the server at checkout.
+          </div>
+          <div class="footer-note">
+            Admin panel: <a href="/admin" style="text-decoration: underline;">/admin</a>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

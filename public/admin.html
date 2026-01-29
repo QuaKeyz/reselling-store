@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin • Resell Store</title>
+  <link rel="stylesheet" href="/style.css" />
+  <style>
+    .admin-wrap { display:grid; grid-template-columns: 420px 1fr; gap: 16px; }
+    @media (max-width: 980px){ .admin-wrap{ grid-template-columns: 1fr; } }
+    input, textarea, select { width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:rgba(17,24,39,0.6); color:var(--text); outline:none; }
+    textarea{ min-height: 90px; }
+    table{ width:100%; border-collapse: collapse; }
+    th,td{ text-align:left; border-bottom:1px solid var(--border); padding:10px 8px; font-size: 13px; vertical-align: top; }
+    .small { font-size: 12px; color: var(--muted); }
+    .pill { display:inline-block; padding:4px 8px; border:1px solid var(--border); border-radius:999px; background:rgba(0,0,0,0.18); margin-right:6px; }
+    .row2 { display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="brand">
+        <h1>Admin Dashboard</h1>
+        <p>Manage products, upload photos, view orders.</p>
+      </div>
+      <div class="actions">
+        <a class="btn" href="/">Back to store</a>
+        <button class="btn danger" id="logoutBtn">Logout</button>
+      </div>
+    </div>
+
+    <div class="card" id="loginCard" style="padding:18px; max-width:520px;">
+      <h2 style="margin:0 0 10px 0;">Login</h2>
+      <div class="small">Enter your ADMIN_PASSWORD (from .env)</div>
+      <div style="height:10px;"></div>
+      <input id="password" type="password" placeholder="Admin password" />
+      <div style="height:10px;"></div>
+      <button class="btn primary" id="loginBtn">Login</button>
+      <div id="loginMsg" class="small" style="margin-top:10px;"></div>
+    </div>
+
+    <div id="app" style="display:none;">
+      <div class="admin-wrap">
+        <div class="card" style="padding:14px;">
+          <h2 style="margin:0 0 10px 0;">Add / Edit Product</h2>
+
+          <div class="small">Click a product on the right to edit it. Or fill and “Create”.</div>
+          <div style="height:10px;"></div>
+
+          <label class="small">ID (optional; auto-generated)</label>
+          <input id="p_id" placeholder="airpods-pro-2" />
+
+          <div style="height:10px;"></div>
+          <label class="small">Name</label>
+          <input id="p_name" placeholder="AirPods Pro (Used)" />
+
+          <div style="height:10px;"></div>
+          <div class="row2">
+            <div>
+              <label class="small">Price (cents)</label>
+              <input id="p_price" type="number" min="50" step="1" placeholder="14000" />
+              <div class="small">Example: $140.00 → 14000</div>
+            </div>
+            <div>
+              <label class="small">Inventory</label>
+              <input id="p_inventory" type="number" min="0" step="1" placeholder="1" />
+            </div>
+          </div>
+
+          <div style="height:10px;"></div>
+          <div class="row2">
+            <div>
+              <label class="small">Category</label>
+              <select id="p_category">
+                <option>Clothing</option>
+                <option>Shoes</option>
+                <option>Headphones</option>
+                <option>Accessories</option>
+                <option>General</option>
+              </select>
+            </div>
+            <div>
+              <label class="small">Condition</label>
+              <select id="p_condition">
+                <option>New</option>
+                <option>Like New</option>
+                <option selected>Good</option>
+                <option>Fair</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="height:10px;"></div>
+          <div class="row2">
+            <div>
+              <label class="small">Brand</label>
+              <input id="p_brand" placeholder="Nike / Apple / Designer…" />
+            </div>
+            <div>
+              <label class="small">Size</label>
+              <input id="p_size" placeholder="M / L / 10 / 9.5 …" />
+            </div>
+          </div>
+
+          <div style="height:10px;"></div>
+          <label class="small">Description</label>
+          <textarea id="p_description" placeholder="Notes: box included, no scratches, etc."></textarea>
+
+          <div style="height:10px;"></div>
+          <label class="small">Image URL</label>
+          <input id="p_imageUrl" placeholder="/uploads/yourphoto.jpg" />
+
+          <div style="height:10px;"></div>
+          <label class="small">Upload image</label>
+          <input id="p_imageFile" type="file" accept="image/*" />
+
+          <div style="height:10px;"></div>
+          <label class="small">
+            <input id="p_active" type="checkbox" checked />
+            Active (shows in store)
+          </label>
+
+          <div style="height:12px;"></div>
+          <div class="row" style="justify-content:flex-start; gap:10px;">
+            <button class="btn primary" id="createBtn">Create</button>
+            <button class="btn" id="updateBtn" disabled>Update</button>
+            <button class="btn danger" id="deleteBtn" disabled>Delete</button>
+            <button class="btn" id="clearBtn">Clear</button>
+          </div>
+
+          <div id="msg" class="small" style="margin-top:10px;"></div>
+        </div>
+
+        <div>
+          <div class="card" style="padding:14px; margin-bottom:16px;">
+            <h2 style="margin:0 0 10px 0;">Products</h2>
+            <div class="small">Tip: set Inventory to 0 to “sold out”. Or uncheck Active to hide.</div>
+            <div style="height:10px;"></div>
+            <div id="productsList" class="small"></div>
+          </div>
+
+          <div class="card" style="padding:14px;">
+            <h2 style="margin:0 0 10px 0;">Orders</h2>
+            <div class="small">Paid orders auto-mark as paid when webhook is set.</div>
+            <div style="height:10px;"></div>
+            <div style="overflow:auto;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>When</th>
+                    <th>Status</th>
+                    <th>Customer</th>
+                    <th>Items</th>
+                    <th>Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody id="ordersBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="/admin.js"></script>
+</body>
+</html>
