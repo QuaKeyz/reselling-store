@@ -194,12 +194,18 @@
   <script src="/admin.js"></script>
 <script>
   function getAdminToken() {
-    // supports multiple storage keys
-    return localStorage.getItem("adminToken") ||
-           localStorage.getItem("token") ||
-           localStorage.getItem("ADMIN_TOKEN") ||
-           "";
-  }
+  return (
+    window.adminToken ||
+    localStorage.getItem("adminToken") ||
+    sessionStorage.getItem("adminToken") ||
+    localStorage.getItem("token") ||
+    sessionStorage.getItem("token") ||
+    localStorage.getItem("ADMIN_TOKEN") ||
+    sessionStorage.getItem("ADMIN_TOKEN") ||
+    ""
+  );
+}
+
 
   function pickMode() {
     const el = document.querySelector('input[name="importMode"]:checked');
