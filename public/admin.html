@@ -18,6 +18,32 @@
   </style>
 </head>
 <body>
+<section style="margin-top:16px;">
+  <div class="card" style="padding:14px;">
+    <h2 style="margin:0 0 8px; letter-spacing:0.6px; text-transform:uppercase;">Bulk Import Inventory</h2>
+    <p style="margin:0 0 10px; opacity:0.8;">
+      Paste JSON array of products. Prices are <b>cents</b> (e.g. $65.00 = 6500).
+    </p>
+
+    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:10px;">
+      <label style="display:flex; gap:8px; align-items:center;">
+        <input type="radio" name="importMode" value="create" checked />
+        Create only (don’t overwrite)
+      </label>
+      <label style="display:flex; gap:8px; align-items:center;">
+        <input type="radio" name="importMode" value="upsert" />
+        Upsert (update if ID exists)
+      </label>
+      <button id="importBtn" class="btn primary" type="button">Import Now</button>
+    </div>
+
+    <textarea id="importJson" class="input" style="width:100%; min-height:220px; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;"
+      placeholder='[{"name":"Item","priceCents":6500,"inventory":1,"category":"Streetwear","brand":"...","condition":"New","size":"M","description":"...","imageUrl":"/uploads/xxx.jpg","active":true}]'></textarea>
+
+    <pre id="importResult" style="margin:10px 0 0; white-space:pre-wrap; opacity:0.9;"></pre>
+  </div>
+</section>
+
   <div class="container">
     <div class="header">
       <div class="brand">
@@ -166,5 +192,82 @@
   </div>
 
   <script src="/admin.js"></script>
+<script>
+  function getAdminToken() {
+    // supports multiple storage keys
+    return localStorage.getItem("adminToken") ||
+           localStorage.getItem("token") ||
+           localStorage.getItem("ADMIN_TOKEN") ||
+           "";
+  }
+
+  function pickMode() {
+    const el = document.querySelector('input[name="importMode"]:checked');
+    return el ? el.value : "create";
+  }
+
+  async function bulkImport() {
+    const resultEl = document.getElementById("importResult");
+    const btn = document.getElementById("importBtn");
+    const token = getAdminToken();
+
+    if (!token) {
+      resultEl.textContent = "❌ You must log in first (admin token not found).";
+      return;
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(document.getElementById("importJson").value);
+    } catch (e) {
+      resultEl.textContent = "❌ Invalid JSON: " + e.message;
+      return;
+    }
+
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      resultEl.textContent = "❌ JSON must be a non-empty array of products.";
+      return;
+    }
+
+    btn.disabled = true;
+    resultEl.textContent = "Importing...";
+
+    try {
+      const r = await fetch("/api/admin/bulk-import", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({ mode: pickMode(), products: parsed })
+      });
+
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        resultEl.textContent = "❌ Import failed: " + (data.error || r.statusText);
+        return;
+      }
+
+      resultEl.textContent =
+        "✅ Import complete\n" +
+        "Created: " + data.createdCount + "\n" +
+        "Updated: " + data.updatedCount + "\n" +
+        "Errors: " + data.errorCount + "\n\n" +
+        JSON.stringify(data.errors?.slice(0, 15) || [], null, 2);
+
+      // If your admin page has a refresh/load function, call it:
+      if (typeof window.loadProducts === "function") window.loadProducts();
+      if (typeof window.refreshProducts === "function") window.refreshProducts();
+
+    } catch (e) {
+      resultEl.textContent = "❌ Import failed: " + e.message;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  document.getElementById("importBtn")?.addEventListener("click", bulkImport);
+</script>
+
 </body>
 </html>

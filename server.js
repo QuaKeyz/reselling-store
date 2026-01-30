@@ -388,3 +388,131 @@ app.get("/admin", (_req, res) => {
 // Start
 const port = process.env.PORT || 4242;
 app.listen(port, () => console.log(`Listening on ${port}`));
+// -----------------------------
+// Bulk import (admin)
+// POST /api/admin/bulk-import
+// Body: { products: [ {name, priceCents, inventory, ...} ], mode?: "create"|"upsert" }
+// -----------------------------
+app.post("/api/admin/bulk-import", requireAdmin, async (req, res) => {
+  try {
+    const mode = String(req.body?.mode || "create"); // "create" or "upsert"
+    const products = req.body?.products;
+
+    if (!Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({ error: "products must be a non-empty array" });
+    }
+
+    const db = await readDb();
+
+    const created = [];
+    const updated = [];
+    const skipped = [];
+    const errors = [];
+
+    for (let i = 0; i < products.length; i++) {
+      const raw = products[i] || {};
+      const name = String(raw.name || "").trim();
+
+      if (!name) {
+        errors.push({ index: i, error: "Missing name" });
+        continue;
+      }
+
+      // Build product object
+      const baseId = raw.id ? slugify(raw.id) : slugify(name);
+      const existing = db.products.find(p => p.id === baseId);
+
+      const productPayload = {
+        name,
+        priceCents: moneyCents(raw.priceCents),
+        imageUrl: String(raw.imageUrl || ""),
+        description: String(raw.description || ""),
+        category: String(raw.category || "General"),
+        brand: String(raw.brand || ""),
+        size: String(raw.size || ""),
+        condition: String(raw.condition || "Good"),
+        inventory: Number.isFinite(Number(raw.inventory)) ? Number(raw.inventory) : 1,
+        active: raw.active !== false
+      };
+
+      if (productPayload.priceCents < 50) {
+        errors.push({ index: i, error: "priceCents too low (min 50 cents)" });
+        continue;
+      }
+      if (!Number.isFinite(productPayload.inventory) || productPayload.inventory < 0) {
+        productPayload.inventory = 0;
+      }
+
+      // CREATE mode: never overwrite; ensure unique id
+      if (mode === "create") {
+        let id = baseId;
+        if (existing) {
+          // generate unique id
+          id = `${baseId}-${crypto.randomUUID().slice(0, 6)}`;
+        }
+
+        const now = nowIso();
+        const product = {
+          id,
+          ...productPayload,
+          createdAt: now,
+          updatedAt: now
+        };
+
+        db.products.push(product);
+        created.push(product);
+        continue;
+      }
+
+      // UPSERT mode: update if exists, else create
+      if (mode === "upsert") {
+        if (existing) {
+          existing.name = productPayload.name;
+          existing.priceCents = productPayload.priceCents;
+          existing.imageUrl = productPayload.imageUrl;
+          existing.description = productPayload.description;
+          existing.category = productPayload.category;
+          existing.brand = productPayload.brand;
+          existing.size = productPayload.size;
+          existing.condition = productPayload.condition;
+          existing.inventory = productPayload.inventory;
+          existing.active = productPayload.active;
+          existing.updatedAt = nowIso();
+          updated.push(existing);
+        } else {
+          const now = nowIso();
+          const product = {
+            id: baseId,
+            ...productPayload,
+            createdAt: now,
+            updatedAt: now
+          };
+          db.products.push(product);
+          created.push(product);
+        }
+        continue;
+      }
+
+      skipped.push({ index: i, reason: `Unknown mode: ${mode}` });
+    }
+
+    await writeDb(db);
+
+    res.json({
+      ok: true,
+      mode,
+      createdCount: created.length,
+      updatedCount: updated.length,
+      skippedCount: skipped.length,
+      errorCount: errors.length,
+      created,
+      updated,
+      skipped,
+      errors
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Bulk import failed" });
+  }
+});
+
