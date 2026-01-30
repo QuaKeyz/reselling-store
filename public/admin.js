@@ -154,7 +154,18 @@ async function login() {
 
   if (!data.ok) throw new Error(data.d.error || "Login failed");
 
-  token = data.d.token;
+ const token = (data?.token) || (data?.d?.token);
+
+if (!token) {
+  throw new Error("Login succeeded but token missing in response");
+}
+headers: { Authorization: "Bearer " + token }
+
+localStorage.setItem("adminToken", token);
+sessionStorage.setItem("adminToken", token);
+window.adminToken = token;
+
+
   localStorage.setItem("admin_token", token);
   loginCard.style.display = "none";
   app.style.display = "block";
@@ -162,6 +173,10 @@ async function login() {
 }
 
 function logout() {
+localStorage.removeItem("adminToken");
+sessionStorage.removeItem("adminToken");
+window.adminToken = "";
+
   token = "";
   localStorage.removeItem("admin_token");
   location.reload();
