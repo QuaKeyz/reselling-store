@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Product</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .wrap { display: flex; gap: 18px; align-items: flex-start; }
+    .thumbs img {
+      width: 72px; height: 72px; object-fit: cover;
+      cursor: pointer; margin: 6px 0; border: 1px solid #ddd;
+    }
+    .main-img { width: 420px; height: 420px; object-fit: cover; border: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+  <a href="/">← Back</a>
+  <h1 id="name"></h1>
+  <p id="price"></p>
+
+  <div class="wrap">
+    <div class="thumbs" id="thumbs"></div>
+    <img id="mainImg" class="main-img" alt="" />
+  </div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const id = params.get("id");
+
+    async function loadProduct() {
+      const res = await fetch(`/api/products/${encodeURIComponent(id)}`);
+      if (!res.ok) {
+        document.body.innerHTML = "<p>Product not found.</p>";
+        return;
+      }
+      const product = await res.json();
+
+      document.getElementById("name").textContent = product.name || id;
+      document.getElementById("price").textContent =
+        product.priceCents != null ? `$${(product.priceCents / 100).toFixed(2)}` : "";
+
+      const images = (product.images && product.images.length)
+        ? product.images
+        : (product.imageUrl ? [product.imageUrl] : []);
+
+      const mainImg = document.getElementById("mainImg");
+      const thumbs = document.getElementById("thumbs");
+      thumbs.innerHTML = "";
+
+      if (images.length) {
+        mainImg.src = images[0];
+        mainImg.alt = product.name || "";
+      }
+
+      images.forEach((src) => {
+        const img = document.createElement("img");
+        img.src = src;
+        img.alt = product.name || "";
+        img.onclick = () => (mainImg.src = src);
+        thumbs.appendChild(img);
+      });
+    }
+
+    loadProduct();
+  </script>
+</body>
+</html>
