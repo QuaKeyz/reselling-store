@@ -2,73 +2,155 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ember Syndicate</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Store</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
- <div class="container">
 
-  <!-- HERO FIRST -->
-  <div class="hero">
-    <div class="hero-inner">
-     <div class="brand">
-  <div class="logo"></div>
-  <div>
-    <h1><span>WELCOME TO THE VAULT</span></h1>
-    <p>Low stock, high demand — when it’s gone, it’s gone.</p>
-  </div>
-</div>
+  <!-- Fullscreen hero background -->
+ <div class="hero" role="img" aria-label="Background">
+  <div class="grain"></div>
+  <div class="leak"></div>
+  <div class="announce">NEXT DROP: FRIDAY 8PM • LIMITED STOCK • FAST SHIPPING</div>
+.announce{
+  position:absolute;
+  top:64px;
+  left:50%;
+  transform:translateX(-50%);
+  z-index:5;
+  padding:8px 12px;
+  border:1px solid rgba(255,255,255,.18);
+  background: rgba(0,0,0,.22);
+  color: rgba(255,255,255,.86);
+  border-radius:999px;
+  font-size:10px;
+  letter-spacing:1.6px;
+  text-transform:uppercase;
+  backdrop-filter: blur(10px);
+}
 
 
-     
-
-    <!-- SEARCH UNDER HEADLINE -->
-    <div class="controls">
-      <input id="search" class="input" placeholder="Search heat…" />
-      <select id="category" class="input select">
-        <option value="">All categories</option>
-      </select>
-      <div class="badge"><span class="dot"></span> Cart: <span id="cartCount">0</span></div>
+  <div class="hero-cta">
+    <h1>Exclusive Drops</h1>
+    <p>Hand-picked pieces. Limited stock. Tap in before it’s gone.</p>
+    <div class="hero-btns">
+      <a class="btn solid" href="#shop">Enter Shop</a>
+      <a class="btn" href="/admin">Admin Login</a>
     </div>
   </div>
 
-  <!-- STORE GRID -->
-  <div class="grid">
-    <section class="products" id="products"></section>
-
-    <aside class="card cart">
-      <div class="pad">
-        <div class="row">
-          <h2>Your Cart</h2>
-          <button id="clearBtn" class="btn danger">Clear</button>
-        </div>
-
-        <div class="hr"></div>
-
-        <div id="cartItems" class="cart-items"></div>
-
-        <div class="hr"></div>
-
-        <div class="row">
-          <div class="footer-note">Subtotal</div>
-          <div class="price" id="subtotal">$0.00</div>
-        </div>
-
-        <button id="checkoutBtn" class="btn primary" disabled>Checkout</button>
-
-        <div class="footer-note">
-          Secure Stripe checkout. Inventory is verified at checkout.
-        </div>
-        <div class="footer-note">
-          Support: <a href="mailto:bmaking271@gmail.com" style="text-decoration:underline;">bmaking271@gmail.com</a>
-        </div>
+    <!-- Top bar -->
+    <header class="topbar">
+      <div class="top-left">
+        <button class="icon-btn" id="menuBtn" aria-label="Menu">✶</button>
       </div>
-    </aside>
+
+      <div class="top-center">
+        <!-- Use your own logo image -->
+        <a href="/" class="logo">
+          <img src="/assets/logo.png" alt="Brand" onerror="this.style.display='none'; this.parentElement.textContent='YOUR BRAND';" />
+        </a>
+      </div>
+
+      <div class="top-right">
+        <a class="toplink" href="/admin">LOGIN</a>
+        <span class="dot">/</span>
+        <a class="toplink" href="/cart.html">BAG <span id="bagCount">0</span></a>
+      </div>
+    </header>
+
+    <!-- Left nav -->
+    <nav class="sidenav" aria-label="Primary">
+      <a href="#shop" class="navlink" id="navShop">SHOP</a>
+      <a href="#locations" class="navlink">LOCATIONS</a>
+      <a href="#magazine" class="navlink">MAGAZINE</a>
+    </nav>
+
+    <!-- Bottom links -->
+    <footer class="bottombar">
+      <div class="bottom-left">
+        <a href="#" class="footlink">TERMS</a>
+        <a href="#" class="footlink">PRIVACY</a>
+      </div>
+
+      <div class="bottom-right">
+        <a href="#" class="footlink">GENERAL</a>
+        <a href="#" class="footlink">CONTACT</a>
+        <span class="flag">US</span>
+      </div>
+    </footer>
   </div>
 
-</div>
+  <!-- Shop section (your products) -->
+  <main class="page">
+    <section id="shop" class="shop">
+      <div class="shop-head">
+        <h1>Shop</h1>
+        <div class="filters">
+          <input id="q" placeholder="Search" />
+          <select id="cat">
+            <option value="">All</option>
+            <option value="Tops">Tops</option>
+            <option value="Bottoms">Bottoms</option>
+          </select>
+        </div>
+      </div>
 
-  <script src="/app.js"></script>
+      <div id="grid" class="grid"></div>
+    </section>
+  </main>
+
+  <script>
+    // Bag count (simple localStorage)
+    const bag = JSON.parse(localStorage.getItem("cart") || "[]");
+    document.getElementById("bagCount").textContent = bag.reduce((s,i)=>s+(i.qty||1),0);
+
+    // Load products
+    async function loadProducts() {
+      const res = await fetch("/api/products");
+      const items = await res.json();
+
+      const q = document.getElementById("q").value.trim().toLowerCase();
+      const cat = document.getElementById("cat").value;
+
+      const filtered = items.filter(p => {
+        const okQ = !q || (p.name || "").toLowerCase().includes(q);
+        const okC = !cat || (p.category || "") === cat;
+        return okQ && okC;
+      });
+
+      const grid = document.getElementById("grid");
+      grid.innerHTML = "";
+
+      filtered.forEach(p => {
+        const card = document.createElement("a");
+        card.className = "card";
+        card.href = `/product.html?id=${encodeURIComponent(p.id)}`;
+
+        card.innerHTML = `
+          <div class="card-img">
+            <img src="${p.imageUrl || (p.images && p.images[0]) || ""}" alt="${escapeHtml(p.name || "")}">
+          </div>
+          <div class="card-meta">
+            <div class="card-name">${escapeHtml(p.name || "")}</div>
+            <div class="card-price">$${((p.priceCents||0)/100).toFixed(2)}</div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, m => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+      }[m]));
+    }
+
+    document.getElementById("q").addEventListener("input", loadProducts);
+    document.getElementById("cat").addEventListener("change", loadProducts);
+
+    loadProducts();
+  </script>
 </body>
 </html>

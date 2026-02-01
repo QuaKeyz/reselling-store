@@ -1,6 +1,4 @@
+node_modules/
 .env
-data/
-public/uploads/
-.env
-data/
-public/uploads/
+data/db.json
+.DS_Store

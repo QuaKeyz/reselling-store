@@ -10,12 +10,25 @@ import multer from "multer";
 
 dotenv.config();
 
+const app = express();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const PUBLIC_DIR = path.join(__dirname, "public");
+
+// Serve static files
+app.use(express.static(PUBLIC_DIR));
+
+// ✅ Supabase client (MUST export { supabase } from lib/supabaseClient.js)
+const { supabase } = await import("./lib/supabaseClient.js");
+
+// Env
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
 const BASE_URL = process.env.BASE_URL || "http://localhost:4242";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "change-me-now";
 
-// Persistent dirs (for Render paid + disk)
+// Persistent dirs (Render paid disk optional)
 const STORE_DATA_DIR = process.env.STORE_DATA_DIR || "";
 const STORE_UPLOADS_DIR = process.env.STORE_UPLOADS_DIR || "";
 
@@ -25,13 +38,8 @@ if (!STRIPE_SECRET_KEY) {
 }
 
 const stripe = new Stripe(STRIPE_SECRET_KEY);
-const app = express();
 
-// Paths
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const PUBLIC_DIR = path.join(__dirname, "public");
-
+// Paths (orders can stay local for now)
 const DATA_DIR = STORE_DATA_DIR ? STORE_DATA_DIR : path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
 
@@ -72,15 +80,6 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
           order.customerPhone = session.customer_details?.phone || "";
           order.shipping = session.shipping_details || null;
 
-          // Decrement inventory
-          for (const item of order.items) {
-            const p = db.products.find(x => x.id === item.productId);
-            if (p) {
-              const inv = Number(p.inventory ?? 0);
-              p.inventory = Math.max(0, inv - Number(item.qty));
-            }
-          }
-
           await writeDb(db);
         }
       }
@@ -96,12 +95,11 @@ app.post("/webhook", express.raw({ type: "application/json" }), async (req, res)
 // JSON AFTER webhook
 app.use(express.json());
 
-// Static
-app.use(express.static(PUBLIC_DIR));
+// Static extra
 app.use("/uploads", express.static(UPLOADS_DIR));
 
 // -------------------------
-// Simple JSON DB (atomic write)
+// Simple JSON DB (orders only for now)
 // -------------------------
 let writeLock = Promise.resolve();
 
@@ -110,7 +108,7 @@ async function readDb() {
     const raw = await fsp.readFile(DB_PATH, "utf8");
     return JSON.parse(raw);
   } catch {
-    const initial = { products: [], orders: [] };
+    const initial = { orders: [] };
     await writeDb(initial);
     return initial;
   }
@@ -142,6 +140,25 @@ function moneyCents(n) {
   const x = Number(n);
   if (!Number.isFinite(x)) return 0;
   return Math.round(x);
+}
+
+// Convert Supabase row -> frontend shape
+function mapProductOut(row) {
+  const imgs = Array.isArray(row.images) ? row.images : [];
+  return {
+    id: row.id,
+    name: row.name,
+    priceCents: row.price_cents,
+    currency: row.currency || "USD",
+    imageUrl: imgs.length ? imgs[0] : "",
+    images: imgs,
+    description: row.description || "",
+    category: row.category || "",
+    brand: row.brand || "",
+    inventory: Number(row.inventory ?? 0),
+    active: !!row.is_active,
+    createdAt: row.created_at
+  };
 }
 
 // -------------------------
@@ -177,7 +194,7 @@ app.post("/api/admin/login", async (req, res) => {
 });
 
 // -------------------------
-// Uploads
+// Uploads (optional)
 // -------------------------
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
@@ -203,98 +220,92 @@ app.post("/api/admin/upload", requireAdmin, upload.single("image"), async (req, 
 });
 
 // -------------------------
-// Public products
+// ✅ Public products (Supabase PERMANENT)
 // -------------------------
 app.get("/api/products", async (_req, res) => {
-  const db = await readDb();
-  const visible = db.products.filter(p => p.active !== false && Number(p.inventory ?? 0) > 0);
-  res.json(visible);
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .eq("is_active", true)
+    .gt("inventory", 0)
+    .order("created_at", { ascending: false });
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json((data || []).map(mapProductOut));
 });
 
-// -------------------------
-// Admin products CRUD
-// -------------------------
-app.get("/api/admin/products", requireAdmin, async (_req, res) => {
-  const db = await readDb();
-  res.json(db.products);
-});
-
-app.post("/api/admin/products", requireAdmin, async (req, res) => {
-  const db = await readDb();
-  const body = req.body || {};
-
-  const name = String(body.name || "").trim();
-  if (!name) return res.status(400).json({ error: "Name is required" });
-
-  const id = body.id ? slugify(body.id) : slugify(name);
-  if (db.products.some(p => p.id === id)) return res.status(400).json({ error: "ID already exists" });
-
-  const product = {
-    id,
-    name,
-    priceCents: moneyCents(body.priceCents),
-    imageUrl: String(body.imageUrl || ""),
-    description: String(body.description || ""),
-    category: String(body.category || "General"),
-    brand: String(body.brand || ""),
-    size: String(body.size || ""),
-    condition: String(body.condition || "Good"),
-    inventory: Number.isFinite(Number(body.inventory)) ? Number(body.inventory) : 1,
-    active: body.active !== false,
-    createdAt: nowIso(),
-    updatedAt: nowIso()
-  };
-
-  if (product.priceCents < 50) return res.status(400).json({ error: "Price too low" });
-  if (product.inventory < 0) product.inventory = 0;
-
-  db.products.push(product);
-  await writeDb(db);
-  res.json(product);
-});
-
-app.put("/api/admin/products/:id", requireAdmin, async (req, res) => {
-  const db = await readDb();
+app.get("/api/products/:id", async (req, res) => {
   const id = String(req.params.id || "");
-  const p = db.products.find(x => x.id === id);
-  if (!p) return res.status(404).json({ error: "Not found" });
 
-  const body = req.body || {};
+  const { data, error } = await supabase
+    .from("products")
+    .select("*")
+    .eq("id", id)
+    .single();
 
-  if (body.name !== undefined) p.name = String(body.name || "").trim();
-  if (body.priceCents !== undefined) p.priceCents = moneyCents(body.priceCents);
-  if (body.imageUrl !== undefined) p.imageUrl = String(body.imageUrl || "");
-  if (body.description !== undefined) p.description = String(body.description || "");
-  if (body.category !== undefined) p.category = String(body.category || "General");
-  if (body.brand !== undefined) p.brand = String(body.brand || "");
-  if (body.size !== undefined) p.size = String(body.size || "");
-  if (body.condition !== undefined) p.condition = String(body.condition || "Good");
-  if (body.inventory !== undefined) p.inventory = Number(body.inventory);
-  if (body.active !== undefined) p.active = !!body.active;
+  if (error || !data) return res.status(404).json({ error: "Not found" });
+  if (!data.is_active || Number(data.inventory ?? 0) <= 0) {
+    return res.status(404).json({ error: "Not found" });
+  }
 
-  if (!p.name) return res.status(400).json({ error: "Name is required" });
-  if (p.priceCents < 50) return res.status(400).json({ error: "Price too low" });
-  if (!Number.isFinite(p.inventory) || p.inventory < 0) p.inventory = 0;
-
-  p.updatedAt = nowIso();
-  await writeDb(db);
-  res.json(p);
+  res.json(mapProductOut(data));
 });
 
-app.delete("/api/admin/products/:id", requireAdmin, async (req, res) => {
-  const db = await readDb();
-  const id = String(req.params.id || "");
-  const before = db.products.length;
+// -----------------------------
+// ✅ Bulk import -> Supabase (PERMANENT)
+// POST /api/admin/bulk-import
+// Body: { products: [ ... ] }
+// -----------------------------
+app.post("/api/admin/bulk-import", requireAdmin, async (req, res) => {
+  try {
+    const products = req.body?.products;
 
-  db.products = db.products.filter(p => p.id !== id);
-  if (db.products.length === before) return res.status(404).json({ error: "Not found" });
+    if (!Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({ error: "products must be a non-empty array" });
+    }
 
-  await writeDb(db);
-  res.json({ ok: true });
+    const rows = products.map((raw) => {
+      const name = String(raw.name || "").trim();
+      const id = raw.id ? slugify(raw.id) : slugify(name);
+      const images = Array.isArray(raw.images) ? raw.images.map(String) : [];
+
+      return {
+        id,
+        name,
+        brand: String(raw.brand || ""),
+        category: String(raw.category || "General"),
+        description: String(raw.description || ""),
+        price_cents: moneyCents(raw.priceCents),
+        currency: String(raw.currency || "USD"),
+        images,
+        inventory: Number.isFinite(Number(raw.inventory)) ? Number(raw.inventory) : 0,
+        is_active: raw.active !== false
+      };
+    });
+
+    // basic validation
+    for (const r of rows) {
+      if (!r.name) return res.status(400).json({ error: "Missing name in one item" });
+      if (r.price_cents < 50) return res.status(400).json({ error: "priceCents too low (min 50 cents)" });
+      if (!Number.isFinite(r.inventory) || r.inventory < 0) r.inventory = 0;
+    }
+
+    const { data, error } = await supabase
+      .from("products")
+      .upsert(rows, { onConflict: "id" })
+      .select("id");
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    res.json({ ok: true, upsertedCount: data?.length || 0, ids: (data || []).map(d => d.id) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Bulk import failed" });
+  }
 });
 
 // -------------------------
-// Admin orders
+// ✅ Admin: view orders (still local)
 // -------------------------
 app.get("/api/admin/orders", requireAdmin, async (_req, res) => {
   const db = await readDb();
@@ -303,7 +314,7 @@ app.get("/api/admin/orders", requireAdmin, async (_req, res) => {
 });
 
 // -------------------------
-// Secure checkout
+// ✅ Secure checkout (reads products from Supabase, writes order locally)
 // -------------------------
 app.post("/api/create-checkout-session", async (req, res) => {
   try {
@@ -312,7 +323,17 @@ app.post("/api/create-checkout-session", async (req, res) => {
       return res.status(400).json({ error: "Cart is empty or invalid." });
     }
 
-    const db = await readDb();
+    // Fetch products from Supabase
+    const ids = cart.map(x => String(x.id || "")).filter(Boolean);
+    const { data: products, error } = await supabase
+      .from("products")
+      .select("*")
+      .in("id", ids);
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    const byId = new Map((products || []).map(p => [p.id, p]));
+
     const items = cart.map(x => ({
       productId: String(x.id || ""),
       qty: Math.max(1, Math.min(99, Number(x.qty || 1)))
@@ -322,31 +343,34 @@ app.post("/api/create-checkout-session", async (req, res) => {
     const orderItems = [];
 
     for (const item of items) {
-      const p = db.products.find(prod => prod.id === item.productId);
-      if (!p || p.active === false) return res.status(400).json({ error: `Product not available: ${item.productId}` });
+      const p = byId.get(item.productId);
+      if (!p || !p.is_active) return res.status(400).json({ error: `Product not available: ${item.productId}` });
 
       const inv = Number(p.inventory ?? 0);
       if (inv <= 0) return res.status(400).json({ error: `${p.name} is sold out` });
       if (item.qty > inv) return res.status(400).json({ error: `${p.name}: only ${inv} left` });
 
+      const imgs = Array.isArray(p.images) ? p.images : [];
+
       line_items.push({
         quantity: item.qty,
         price_data: {
-          currency: "usd",
-          unit_amount: Number(p.priceCents),
+          currency: (p.currency || "USD").toLowerCase(),
+          unit_amount: Number(p.price_cents),
           product_data: {
             name: p.name,
-            images: p.imageUrl ? [p.imageUrl] : undefined
+            images: imgs.length ? [imgs[0]] : undefined
           }
         }
       });
 
-      orderItems.push({ productId: p.id, name: p.name, priceCents: Number(p.priceCents), qty: item.qty });
+      orderItems.push({ productId: p.id, name: p.name, priceCents: Number(p.price_cents), qty: item.qty });
     }
 
     const orderId = crypto.randomUUID();
     const subtotal = orderItems.reduce((s, i) => s + i.priceCents * i.qty, 0);
 
+    const db = await readDb();
     db.orders.push({
       id: orderId,
       status: "pending",
@@ -360,7 +384,6 @@ app.post("/api/create-checkout-session", async (req, res) => {
       shipping: null,
       stripeSessionId: ""
     });
-
     await writeDb(db);
 
     const session = await stripe.checkout.sessions.create({
@@ -388,131 +411,3 @@ app.get("/admin", (_req, res) => {
 // Start
 const port = process.env.PORT || 4242;
 app.listen(port, () => console.log(`Listening on ${port}`));
-// -----------------------------
-// Bulk import (admin)
-// POST /api/admin/bulk-import
-// Body: { products: [ {name, priceCents, inventory, ...} ], mode?: "create"|"upsert" }
-// -----------------------------
-app.post("/api/admin/bulk-import", requireAdmin, async (req, res) => {
-  try {
-    const mode = String(req.body?.mode || "create"); // "create" or "upsert"
-    const products = req.body?.products;
-
-    if (!Array.isArray(products) || products.length === 0) {
-      return res.status(400).json({ error: "products must be a non-empty array" });
-    }
-
-    const db = await readDb();
-
-    const created = [];
-    const updated = [];
-    const skipped = [];
-    const errors = [];
-
-    for (let i = 0; i < products.length; i++) {
-      const raw = products[i] || {};
-      const name = String(raw.name || "").trim();
-
-      if (!name) {
-        errors.push({ index: i, error: "Missing name" });
-        continue;
-      }
-
-      // Build product object
-      const baseId = raw.id ? slugify(raw.id) : slugify(name);
-      const existing = db.products.find(p => p.id === baseId);
-
-      const productPayload = {
-        name,
-        priceCents: moneyCents(raw.priceCents),
-        imageUrl: String(raw.imageUrl || ""),
-        description: String(raw.description || ""),
-        category: String(raw.category || "General"),
-        brand: String(raw.brand || ""),
-        size: String(raw.size || ""),
-        condition: String(raw.condition || "Good"),
-        inventory: Number.isFinite(Number(raw.inventory)) ? Number(raw.inventory) : 1,
-        active: raw.active !== false
-      };
-
-      if (productPayload.priceCents < 50) {
-        errors.push({ index: i, error: "priceCents too low (min 50 cents)" });
-        continue;
-      }
-      if (!Number.isFinite(productPayload.inventory) || productPayload.inventory < 0) {
-        productPayload.inventory = 0;
-      }
-
-      // CREATE mode: never overwrite; ensure unique id
-      if (mode === "create") {
-        let id = baseId;
-        if (existing) {
-          // generate unique id
-          id = `${baseId}-${crypto.randomUUID().slice(0, 6)}`;
-        }
-
-        const now = nowIso();
-        const product = {
-          id,
-          ...productPayload,
-          createdAt: now,
-          updatedAt: now
-        };
-
-        db.products.push(product);
-        created.push(product);
-        continue;
-      }
-
-      // UPSERT mode: update if exists, else create
-      if (mode === "upsert") {
-        if (existing) {
-          existing.name = productPayload.name;
-          existing.priceCents = productPayload.priceCents;
-          existing.imageUrl = productPayload.imageUrl;
-          existing.description = productPayload.description;
-          existing.category = productPayload.category;
-          existing.brand = productPayload.brand;
-          existing.size = productPayload.size;
-          existing.condition = productPayload.condition;
-          existing.inventory = productPayload.inventory;
-          existing.active = productPayload.active;
-          existing.updatedAt = nowIso();
-          updated.push(existing);
-        } else {
-          const now = nowIso();
-          const product = {
-            id: baseId,
-            ...productPayload,
-            createdAt: now,
-            updatedAt: now
-          };
-          db.products.push(product);
-          created.push(product);
-        }
-        continue;
-      }
-
-      skipped.push({ index: i, reason: `Unknown mode: ${mode}` });
-    }
-
-    await writeDb(db);
-
-    res.json({
-      ok: true,
-      mode,
-      createdCount: created.length,
-      updatedCount: updated.length,
-      skippedCount: skipped.length,
-      errorCount: errors.length,
-      created,
-      updated,
-      skipped,
-      errors
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message || "Bulk import failed" });
-  }
-});
-
