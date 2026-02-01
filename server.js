@@ -262,6 +262,27 @@ app.get("/api/products/:id", async (req, res) => {
 
   res.json(mapProductOut(data));
 });
+// GET single product by slug
+app.get("/api/products/:slug", async (req, res) => {
+  try {
+    const slug = req.params.slug;
+
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .eq("slug", slug)
+      .single();
+
+    if (error) {
+      return res.status(404).json({ error: "Product not found", details: error.message });
+    }
+
+    return res.json(data);
+  } catch (e) {
+    return res.status(500).json({ error: "Server error", details: String(e) });
+  }
+});
+
 
 // -----------------------------
 // ✅ Bulk import -> Supabase (PERMANENT)

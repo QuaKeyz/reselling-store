@@ -1,4 +1,25 @@
 {
-  "products": [],
+  "products": [
+    {
+      "id": "cloud-tee-black",
+      "name": "Cloud Tee Black",
+      "priceCents": 4500,
+      "imageUrl": "/assets/tee-black-1.PNG",
+      "images": [
+        "/assets/tee-black-1.PNG",
+        "/assets/tee-black-2.PNG",
+        "/assets/tee-black-3.PNG"
+      ],
+      "description": "",
+      "category": "Tops",
+      "brand": "",
+      "size": "",
+      "condition": "Good",
+      "inventory": 10,
+      "active": true,
+      "createdAt": "2026-01-31T15:33:26.452Z",
+      "updatedAt": "2026-01-31T15:33:26.452Z"
+    }
+  ],
   "orders": []
 }
