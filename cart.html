@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Your Bag</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; padding: 24px; }
+    .wrap { max-width: 900px; margin: 0 auto; }
+    .top { display:flex; justify-content:space-between; align-items:center; margin-bottom: 18px; }
+    a { color: inherit; }
+    h1 { margin: 0; }
+    .muted { color: #666; }
+    .row { display: grid; grid-template-columns: 1fr auto auto auto; gap: 12px; padding: 12px 0; border-bottom: 1px solid #e6e6e6; align-items: center; }
+    .qty { display: inline-flex; gap: 8px; align-items: center; }
+    button { cursor: pointer; padding: 8px 10px; border: 1px solid #ddd; background: #fff; border-radius: 10px; }
+    button.primary { border-color: #111; background: #111; color: #fff; padding: 12px 14px; border-radius: 12px; }
+    .totals { display: flex; justify-content: space-between; padding: 16px 0; font-weight: 600; }
+    .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+    .notice { padding: 12px 14px; border: 1px solid #eee; border-radius: 14px; background: #fafafa; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h1>Your Bag</h1>
+      <a href="/">← Continue shopping</a>
+    </div>
+
+    <p class="muted">Items are saved on this device.</p>
+
+    <div id="empty" class="notice" style="display:none;">
+      Your bag is empty. <a href="/">Go shop</a>
+    </div>
+
+    <div id="list"></div>
+
+    <div class="totals" id="totals" style="display:none;">
+      <div>Total</div>
+      <div id="totalAmount">$0.00</div>
+    </div>
+
+    <div class="actions">
+      <button onclick="clearCart()">Clear bag</button>
+      <button class="primary" onclick="checkout()">Checkout</button>
+    </div>
+
+    <p id="checkoutHint" class="muted" style="margin-top:12px;"></p>
+  </div>
+
+<script>
+  const CART_KEY = "cart";
+
+  function readCart() {
+    try { return JSON.parse(localStorage.getItem(CART_KEY) || "[]"); }
+    catch { return []; }
+  }
+  function writeCart(cart) {
+    localStorage.setItem(CART_KEY, JSON.stringify(cart));
+    render();
+  }
+  function money(n) {
+    return (Math.round((Number(n) || 0) * 100) / 100).toLocaleString(undefined, { style: "currency", currency: "USD" });
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  }
+
+  function inc(id) {
+    const cart = readCart();
+    const item = cart.find(x => String(x.id) === String(id));
+    if (!item) return;
+    item.qty = (item.qty || 1) + 1;
+    writeCart(cart);
+  }
+  function dec(id) {
+    const cart = readCart();
+    const item = cart.find(x => String(x.id) === String(id));
+    if (!item) return;
+    item.qty = Math.max(1, (item.qty || 1) - 1);
+    writeCart(cart);
+  }
+  function removeItem(id) {
+    const cart = readCart().filter(x => String(x.id) !== String(id));
+    writeCart(cart);
+  }
+  function clearCart() {
+    localStorage.removeItem(CART_KEY);
+    render();
+  }
+
+  function render() {
+    const cart = readCart();
+    const list = document.getElementById("list");
+    const empty = document.getElementById("empty");
+    const totals = document.getElementById("totals");
+    const totalAmount = document.getElementById("totalAmount");
+
+    list.innerHTML = "";
+
+    if (!cart.length) {
+      empty.style.display = "block";
+      totals.style.display = "none";
+      return;
+    }
+
+    empty.style.display = "none";
+
+    let total = 0;
+    for (const item of cart) {
+      const qty = item.qty || 1;
+      const price = Number(item.price) || 0;
+      total += price * qty;
+
+      const row = document.createElement("div");
+      row.className = "row";
+      row.innerHTML = `
+        <div>
+          <div><strong>${escapeHtml(item.title || "Item")}</strong></div>
+          <div class="muted">${money(price)}</div>
+        </div>
+        <div class="qty">
+          <button onclick="dec('${escapeHtml(item.id)}')">−</button>
+          <div>${qty}</div>
+          <button onclick="inc('${escapeHtml(item.id)}')">+</button>
+        </div>
+        <div>${money(price * qty)}</div>
+        <div><button onclick="removeItem('${escapeHtml(item.id)}')">Remove</button></div>
+      `;
+      list.appendChild(row);
+    }
+
+    totals.style.display = "flex";
+    totalAmount.textContent = money(total);
+  }
+
+  async function checkout() {
+    const cart = readCart();
+    if (!cart.length) return;
+
+    // You will replace this once your backend/Stripe endpoint is confirmed.
+    const endpoints = ["/api/checkout", "/create-checkout-session", "/checkout"];
+    const hint = document.getElementById("checkoutHint");
+    hint.textContent = "Starting checkout…";
+
+    for (const endpoint of endpoints) {
+      try {
+        const r = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: cart })
+        });
+        if (!r.ok) throw new Error("bad status");
+        const data = await r.json();
+        if (data && data.url) {
+          window.location.href = data.url;
+          return;
+        }
+      } catch {}
+    }
+
+    hint.textContent = "Checkout API not wired yet. Next step: connect Stripe endpoint.";
+  }
+
+  render();
+</script>
+</body>
+</html>
