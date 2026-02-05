@@ -3,115 +3,154 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Reselling Store</title>
-  <meta name="description" content="Shop our latest items." />
-  <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; }
-    header { display:flex; justify-content:space-between; align-items:center; padding: 16px 20px; border-bottom: 1px solid #eee; position: sticky; top: 0; background: #fff; }
-    header a { text-decoration: none; color: inherit; font-weight: 600; }
-    .wrap { max-width: 1100px; margin: 0 auto; padding: 22px 20px; }
-    .hero { display:flex; justify-content:space-between; gap: 16px; align-items:flex-end; margin-bottom: 18px; }
-    .hero h1 { margin: 0; font-size: 28px; }
-    .hero p { margin: 6px 0 0; color: #666; }
-    .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
-    .card { border: 1px solid #eee; border-radius: 16px; padding: 14px; background: #fff; box-shadow: 0 1px 0 rgba(0,0,0,.03); }
-    .img { width: 100%; aspect-ratio: 1 / 1; border-radius: 12px; border: 1px solid #f0f0f0; background: linear-gradient(135deg, #f7f7f7, #ffffff); display:flex; align-items:center; justify-content:center; color:#999; font-weight:600; }
-    .title { margin: 10px 0 6px; font-weight: 700; }
-    .muted { color: #666; font-size: 14px; }
-    .row { display:flex; justify-content:space-between; align-items:center; gap: 10px; margin-top: 10px; }
-    button { cursor:pointer; padding: 10px 12px; border: 1px solid #ddd; background:#fff; border-radius: 12px; font-weight: 600; }
-    button.primary { background:#111; color:#fff; border-color:#111; }
-    footer { padding: 24px 20px; border-top: 1px solid #eee; color:#666; }
-  </style>
+  <title>Store</title>
+  <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-  <header>
-    <a href="/">Reselling Store</a>
-    <nav style="display:flex; gap:14px; align-items:center;">
-      <a href="/admin">Admin</a>
-      <a href="/cart.html">BAG (<span id="bagCount">0</span>)</a>
+
+  <!-- Fullscreen hero background -->
+ <div class="hero" role="img" aria-label="Background">
+  <div class="grain"></div>
+  <div class="leak"></div>
+  <div class="announce">NEXT DROP: FRIDAY 8PM • LIMITED STOCK • FAST SHIPPING</div>
+.announce{
+  position:absolute;
+  top:64px;
+  left:50%;
+  transform:translateX(-50%);
+  z-index:5;
+  padding:8px 12px;
+  border:1px solid rgba(255,255,255,.18);
+  background: rgba(0,0,0,.22);
+  color: rgba(255,255,255,.86);
+  border-radius:999px;
+  font-size:10px;
+  letter-spacing:1.6px;
+  text-transform:uppercase;
+  backdrop-filter: blur(10px);
+}
+
+
+  <div class="hero-cta">
+    <h1>Exclusive Drops</h1>
+    <p>Hand-picked pieces. Limited stock. Tap in before it’s gone.</p>
+    <div class="hero-btns">
+      <a class="btn solid" href="#shop">Enter Shop</a>
+      <a class="btn" href="/admin">Admin Login</a>
+    </div>
+  </div>
+
+    <!-- Top bar -->
+    <header class="topbar">
+      <div class="top-left">
+        <button class="icon-btn" id="menuBtn" aria-label="Menu">✶</button>
+      </div>
+
+      <div class="top-center">
+        <!-- Use your own logo image -->
+        <a href="/" class="logo">
+          <img src="/assets/logo.png" alt="Brand" onerror="this.style.display='none'; this.parentElement.textContent='YOUR BRAND';" />
+        </a>
+      </div>
+
+      <div class="top-right">
+        <a class="toplink" href="/admin">LOGIN</a>
+        <span class="dot">/</span>
+        <a class="toplink" href="/cart.html">BAG <span id="bagCount">0</span></a>
+      </div>
+    </header>
+
+    <!-- Left nav -->
+    <nav class="sidenav" aria-label="Primary">
+      <a href="#shop" class="navlink" id="navShop">SHOP</a>
+      <a href="#locations" class="navlink">LOCATIONS</a>
+      <a href="#magazine" class="navlink">MAGAZINE</a>
     </nav>
-  </header>
 
-  <main class="wrap">
-    <div class="hero">
-      <div>
+    <!-- Bottom links -->
+    <footer class="bottombar">
+      <div class="bottom-left">
+        <a href="#" class="footlink">TERMS</a>
+        <a href="#" class="footlink">PRIVACY</a>
+      </div>
+
+      <div class="bottom-right">
+        <a href="#" class="footlink">GENERAL</a>
+        <a href="#" class="footlink">CONTACT</a>
+        <span class="flag">US</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Shop section (your products) -->
+  <main class="page">
+    <section id="shop" class="shop">
+      <div class="shop-head">
         <h1>Shop</h1>
-        <p>Tap “Add to Bag” then checkout.</p>
-      </div>
-    </div>
-
-    <div class="grid">
-      <!-- PRODUCT 1 -->
-      <div class="card">
-        <div class="img">Image</div>
-        <div class="title">Vintage Hoodie</div>
-        <div class="muted">$49.99</div>
-        <div class="row">
-          <button class="add-to-bag primary"
-            data-id="hoodie_001"
-            data-title="Vintage Hoodie"
-            data-price="49.99"
-          >Add to Bag</button>
+        <div class="filters">
+          <input id="q" placeholder="Search" />
+          <select id="cat">
+            <option value="">All</option>
+            <option value="Tops">Tops</option>
+            <option value="Bottoms">Bottoms</option>
+          </select>
         </div>
       </div>
 
-      <!-- PRODUCT 2 -->
-      <div class="card">
-        <div class="img">Image</div>
-        <div class="title">Sneakers (Clean)</div>
-        <div class="muted">$89.00</div>
-        <div class="row">
-          <button class="add-to-bag primary"
-            data-id="sneakers_001"
-            data-title="Sneakers (Clean)"
-            data-price="89.00"
-          >Add to Bag</button>
-        </div>
-      </div>
-
-      <!-- PRODUCT 3 -->
-      <div class="card">
-        <div class="img">Image</div>
-        <div class="title">Graphic Tee</div>
-        <div class="muted">$24.50</div>
-        <div class="row">
-          <button class="add-to-bag primary"
-            data-id="tee_001"
-            data-title="Graphic Tee"
-            data-price="24.50"
-          >Add to Bag</button>
-        </div>
-      </div>
-
-      <!-- PRODUCT 4 -->
-      <div class="card">
-        <div class="img">Image</div>
-        <div class="title">Denim Jacket</div>
-        <div class="muted">$72.00</div>
-        <div class="row">
-          <button class="add-to-bag primary"
-            data-id="jacket_001"
-            data-title="Denim Jacket"
-            data-price="72.00"
-          >Add to Bag</button>
-        </div>
-      </div>
-    </div>
+      <div id="grid" class="grid"></div>
+    </section>
   </main>
 
-  <footer>
-    <div style="max-width:1100px; margin:0 auto;">
-      <div>© <span id="year"></span> Reselling Store</div>
-      <div style="margin-top:6px;">Questions? Email support@yourdomain.com</div>
-    </div>
-  </footer>
-
   <script>
-    document.getElementById("year").textContent = new Date().getFullYear();
-  </script>
+    // Bag count (simple localStorage)
+    const bag = JSON.parse(localStorage.getItem("cart") || "[]");
+    document.getElementById("bagCount").textContent = bag.reduce((s,i)=>s+(i.qty||1),0);
 
-  <!-- IMPORTANT: this powers Add to Bag + bag count -->
-  <script type="module" src="/app.js"></script>
+    // Load products
+    async function loadProducts() {
+      const res = await fetch("/api/products");
+      const items = await res.json();
+
+      const q = document.getElementById("q").value.trim().toLowerCase();
+      const cat = document.getElementById("cat").value;
+
+      const filtered = items.filter(p => {
+        const okQ = !q || (p.name || "").toLowerCase().includes(q);
+        const okC = !cat || (p.category || "") === cat;
+        return okQ && okC;
+      });
+
+      const grid = document.getElementById("grid");
+      grid.innerHTML = "";
+
+      filtered.forEach(p => {
+        const card = document.createElement("a");
+        card.className = "card";
+        card.href = `/product.html?id=${encodeURIComponent(p.id)}`;
+
+        card.innerHTML = `
+          <div class="card-img">
+            <img src="${p.imageUrl || (p.images && p.images[0]) || ""}" alt="${escapeHtml(p.name || "")}">
+          </div>
+          <div class="card-meta">
+            <div class="card-name">${escapeHtml(p.name || "")}</div>
+            <div class="card-price">$${((p.priceCents||0)/100).toFixed(2)}</div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, m => ({
+        "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+      }[m]));
+    }
+
+    document.getElementById("q").addEventListener("input", loadProducts);
+    document.getElementById("cat").addEventListener("change", loadProducts);
+
+    loadProducts();
+  </script>
 </body>
 </html>
